@@ -1,0 +1,163 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<title>ピッタリ止め</title>
+<script>
+let sTime,eTime;
+let request;
+let records=new Array();
+
+const init = ()=>{
+	const loadData=localStorage.getItem('body_clock');
+	if(loadData != null){
+		records=JSON.parse(loadData);
+		showTop10(-1);
+	}
+	document.getElementById('stop').disabled=true;
+};
+
+const startTimer = ()=>{
+	sTime=Date.now();
+	const hms=document.getElementById('target').value;
+	if((hms != '') && (hms !='00:00')){
+		document.getElementById('message').innerText='計測中...';
+		update();
+		document.getElementById('target').disabled=true;
+		document.getElementById('start').disabled=true;
+		document.getElementById('stop').disabled=false;
+	}
+};
+
+const stopTimer = ()=>{
+	document.getElementById('message').innerText += '終了';
+	window.cancelAnimationFrame(request);
+	document.getElementById('target').disabled=false;
+	document.getElementById('start').disabled=false;
+	document.getElementById('stop').disabled=true;
+	document.getElementById('time').style.opacity=1;
+
+	let hms=document.getElementById('target').value;
+	const h=Number(hms.split(':')[0]);
+	const m=Number(hms.split(':')[1]);
+	let s=Number(hms.split(':')[2]);
+	if(isNaN(s)){
+		hms +=":00";
+		s=0;
+	}
+	const target=(h*3600+m*60+s)*1000;
+	const dTime=Math.abs(eTime-target)/1000;
+	document.getElementById('dTime').innerText=dTime.toFixed(3);
+	records.push({"time":dTime,"target":hms,"date":Date.now()});
+	records.sort((a,b)=>{return a.time-b.time});
+	records.splice(10);
+	showTop10(dTime);
+	localStorage.setItem("body_clock",JSON.stringify(records));
+	
+};
+
+const update=()=>{
+	eTime=Date.now()-sTime;
+	document.getElementById('time').innerText=convertHMS(eTime);
+	let opacity=1-(eTime-3000)/1000;
+	if(opacity < 0) opacity=0;
+	if(opacity > 1) opacity=1;
+	document.getElementById('time').style.opacity=opacity;
+	request=window.requestAnimationFrame(update);
+};
+const convertHMS = ms=>{
+	const sec=Math.floor(ms/1000);
+	const h=Math.floor(sec/3600);
+	const m=Math.floor((sec -h*3600)/60);
+	const s=Math.floor(sec-h*3600 -m*60);
+	const hh=('00'+h).slice(-2);
+	const mm=('00'+m).slice(-2);
+	const ss=('00'+s).slice(-2);
+	const sss=('000'+(ms-sec*1000)).slice(-3);
+	return `${hh}:${mm}:${ss}:${sss}`;
+};
+const showTop10 = dTime=>{
+	document.getElementById('top10').innerHTML='';
+	for(let i=-1;i<records.length;i++){
+		const tr=document.createElement('tr');
+		if(i<0){
+			tr.className='header';
+		}else if(dTime==records[i].time){
+			tr.className='select';
+		}
+		const pos=document.createElement('td');
+		pos.className='center';
+		if(i<0){
+			pos.innerText='順位';
+		}else{
+			pos.innerText=i+1;
+		}
+		tr.appendChild(pos);
+		const time=document.createElement('td');
+		if(i<0){
+			time.innerText="誤差";
+			time.className="right";
+		}else {
+			time.innerText=records[i].time.toFixed(3);
+			time.className="right";
+		}
+		tr.appendChild(time);
+		const target=document.createElement("td");
+		target.className="center";
+		if(i<0){
+			target.innerText="目標時間";
+		}else{
+			target.innerText=records[i].target;
+		}
+		tr.appendChild(target);
+		const date=document.createElement("td");
+		date.className="center";
+		if(i<0){
+			date.innerText="更新日";
+		}else{
+			const d=new Date(records[i].date);
+			const yyyy=d.getFullYear();
+			const mm=("00"+(d.getMonth()+1)).slice(-2);
+			const dd=("00"+d.getDate()).slice(-2);
+			const h=("00"+d.getHours()).slice(-2);
+			const m=("00"+d.getMinutes()).slice(-2);
+			const s=("00"+d.getSeconds()).slice(-2);
+			date.innerText=`${yyyy}/${mm}/${dd} ${h}:${m}:${s}`;
+		}
+		tr.appendChild(date);
+		document.getElementById("top10").appendChild(tr);
+	}
+};
+</script>
+<style>
+#time{
+	font:bold 60px sans-serif;
+	color:#0000CC;
+}
+span {
+	color:#CC0000;
+}
+table{border-collapse:collapse;}
+td{
+	padding:5px;
+	border:thin solid #000000;
+}
+.center{text-align:center;}
+.right{text-align:right;}
+.header{background-color:#CCCCCC;}
+.select{background-color:#CCFFCC;}
+
+</style>
+</head>
+<body onload="init()">
+<p>体内トレーニング</p>
+目標時間:<input type="time" id="target" value="00:00:10" step="5">
+<input type="button" id="start" value="スタート" onclick="startTimer()">
+<input type="button" id="stop" value="ストップ" onclick="stopTimer()">
+<span id="message"></span>
+<hr>
+<div id="time">00:00:00.000</div>
+誤差:<span id="dTime">---</span>秒
+<table id="top10"></table>
+</body>
+</html>
